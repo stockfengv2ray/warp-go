@@ -174,6 +174,13 @@ type dnsFlightResult struct {
 // NewMasqueClient establishes a QUIC/H3 connection to the WARP edge.
 // edgeAddrs are candidate host:port addresses tried in order.
 func NewMasqueClient(edgeAddrs []string, tlsConfig *tls.Config, token string) (*MasqueClient, error) {
+	return NewMasqueClientContext(context.Background(), edgeAddrs, tlsConfig, token)
+}
+
+// NewMasqueClientContext is NewMasqueClient with a cancellable initial dial.
+// It is used by transport=auto so a network that blackholes QUIC can fall back
+// to HTTP/2 without waiting for every advertised UDP port to time out.
+func NewMasqueClientContext(ctx context.Context, edgeAddrs []string, tlsConfig *tls.Config, token string) (*MasqueClient, error) {
 	if len(edgeAddrs) == 0 {
 		return nil, errors.New("未提供任何边缘地址")
 	}
@@ -208,7 +215,7 @@ func NewMasqueClient(edgeAddrs []string, tlsConfig *tls.Config, token string) (*
 		dnsCache:   make(map[string]dnsCacheEntry),
 		dnsFlight:  make(map[string]*dnsFlightResult),
 	}
-	bundle, err := c.dial(context.Background())
+	bundle, err := c.dial(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -442,8 +449,8 @@ type SOCKS5Config struct {
 	Username string
 	Password string
 
-	// AllowUDP enables UDP ASSOCIATE. Those datagrams do not traverse the WARP
-	// tunnel — see tunnel/udp.go.
+	// AllowUDP enables UDP ASSOCIATE. H3 relays those datagrams locally; the H2
+	// CONNECT-IP backend sends them through its userspace WARP stack.
 	AllowUDP bool
 }
 
