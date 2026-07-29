@@ -24,10 +24,16 @@ fi
 
 cp "$STATE_FILE" "$WORK_DIR/reg.json"
 
-set -- /app/warp -l "${SOCKS_LISTEN:-0.0.0.0:40000}"
+set -- /app/warp \
+    -l "${SOCKS_LISTEN:-0.0.0.0:40000}" \
+    -ip "${WARP_EDGE:-4}" \
+    -transport "${WARP_TRANSPORT:-h2}"
 if [ -n "${SOCKS_USER:-}" ] && [ -n "${SOCKS_PASS:-}" ]; then
     set -- "$@" -user "$SOCKS_USER" -pass "$SOCKS_PASS"
 fi
+case "${WARP_SELF_TEST:-1}" in
+    1|true|TRUE|yes|YES) set -- "$@" -self-test ;;
+esac
 
-echo "[entrypoint] Starting warp-go SOCKS5 proxy..."
+echo "[entrypoint] Starting warp-go SOCKS5 proxy (transport=${WARP_TRANSPORT:-h2})..."
 exec "$@"
